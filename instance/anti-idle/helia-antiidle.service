@@ -1,0 +1,18 @@
+[Unit]
+Description=Helia anti-idle CPU warmer (OCI Always Free reclaim protection)
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/helia-antiidle.sh
+Restart=always
+RestartSec=10
+# Lowest priority: when the real project is deployed, it always wins CPU
+# contention even if this service is forgotten running.
+Nice=19
+# Duty-cycle tuning (WORK busy seconds / SLEEP rest seconds):
+Environment=WORK=40
+Environment=SLEEP=20
+
+[Install]
+WantedBy=multi-user.target
