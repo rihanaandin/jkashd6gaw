@@ -33,8 +33,8 @@ Total storage bila semua menang: 100 + 50 + 50 = **200 GB** (tepat di kuota — 
 
 | File | Fungsi |
 |---|---|
-| `oci_retry_micro.py` | **Front utama** — war Micro, retry tiap 90–120 detik |
-| `oci_retry.py` | **Front sekunder** — war ARM A1, retry tiap 300–360 detik |
+| `oci_retry.py` | **Front utama** — war ARM A1 (`legacy-arm`), retry tiap 90–120 detik |
+| `oci_retry_micro.py` | **Front sekunder** — war Micro kedua (`legacy-deploy-micro`), retry tiap 300–360 detik |
 | `.github/workflows/oci_retry_micro.yml` | Workflow 24/7 untuk Micro |
 | `.github/workflows/oci_retry.yml` | Workflow 24/7 untuk ARM |
 | `inspect_tenancy.py` | Diagnostik read-only: AD, VCN, instance, pemakaian disk |
@@ -45,11 +45,12 @@ Total storage bila semua menang: 100 + 50 + 50 = **200 GB** (tepat di kuota — 
 
 ## Strategi
 
-1. **Micro didahulukan, ARM belakangan.** Micro jauh lebih mudah menang; instance Micro
-   yang didapat bisa dipakai sebagai server untuk war ARM juga (win-win).
+1. **ARM didahulukan (front utama), Micro kedua.** Satu Micro sudah dimiliki (`helia-micro`,
+   berfungsi sebagai cadangan), jadi Micro kedua hanya bonus. ARM adalah hadiah utama
+   (untuk deploy "super legacy") → ditembak paling agresif.
 2. **Tuning rate-limit.** OCI men-throttle `LaunchInstance` per user (jendela ~60 detik —
    dua call berdekatan, yang kedua kena `429`). Kedua front diatur supaya total laju
-   request ≈ **1 call / 80 detik**: Micro 90s + jitter 0–30s, ARM 300s + jitter 0–60s.
+   request ≈ **1 call / 80 detik**: ARM 90s + jitter 0–30s, Micro 300s + jitter 0–60s.
 3. **Backoff 429 progresif**: 120 → 240 → 480 detik (maks 900 detik), reset setelah
    respons normal. Tidak tergantung interval dasar (bug versi awal: backoff ARM bisa
    membengkak 600 detik hanya karena satu 429).
@@ -73,7 +74,7 @@ Total storage bila semua menang: 100 + 50 + 50 = **200 GB** (tepat di kuota — 
 | Aspek | Repo asli | Repo ini |
 |---|---|---|
 | VCN | Bikin `retry-vcn` + `retry-vcn-micro` sendiri (CIDR 10.0/10.1) | Reuse subnet existing; fallback satu VCN bersama |
-| Interval | 90 detik keduanya | Micro 90s (front utama), ARM 300s (sekunder) — tuning rate-limit |
+| Interval | 90 detik keduanya | ARM 90s (front utama), Micro 300s (sekunder) — tuning rate-limit |
 | 429 | Diperlakukan seperti error biasa | Backoff progresif 120→240→480s (cap 900s) |
 | Preflight | Tidak ada | Cek kuota dulu; stop elegan bila jatah sudah penuh |
 | Deteksi menang paralel | Tidak ada | `LimitExceeded` + kuota penuh → exit sukses |
@@ -93,7 +94,7 @@ Total storage bila semua menang: 100 + 50 + 50 = **200 GB** (tepat di kuota — 
 ```python
 COMPARTMENT_ID = ""               # kosong = pakai tenancy dari ~/.oci/config
 SSH_PUBLIC_KEY = "ssh-ed25519 AAAA... your-key"   # isi .pub kamu (ini aman di-commit)
-INSTANCE_NAME  = "free-arm"       # atau "free-micro" / "free-micro-2"
+INSTANCE_NAME  = "legacy-arm"     # ARM; Micro = "legacy-deploy-micro"
 ARM_OCPUS = 2
 ARM_MEMORY_IN_GBS = 12
 BOOT_VOLUME_SIZE_IN_GBS = 100     # ARM; Micro = 50
@@ -130,8 +131,8 @@ Job jalan (~330 menit, ~220 attempt)
 Jalankan dari tab **Actions** (`Run workflow`) atau:
 
 ```bash
-gh workflow run oci_retry_micro.yml --ref main   # front utama dulu
-gh workflow run oci_retry.yml --ref main         # lalu front sekunder
+gh workflow run oci_retry.yml --ref main         # front utama (ARM) dulu
+gh workflow run oci_retry_micro.yml --ref main   # lalu front sekunder (Micro)
 ```
 
 > Repo harus **public** supaya menit GitHub Actions unlimited.

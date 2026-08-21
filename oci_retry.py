@@ -17,16 +17,16 @@ import datetime
 # NEVER commit real OCIDs/IPs/keys to this public repo.
 COMPARTMENT_ID = ""
 SSH_PUBLIC_KEY = "ssh-ed25519 AAAA... your-key-comment"  # your SSH public key (.pub file content)
-INSTANCE_NAME = "free-arm"
+INSTANCE_NAME = "legacy-arm"
 ARM_OCPUS = 2                    # Always Free A1 entitlement (post Aug-2026)
 ARM_MEMORY_IN_GBS = 12
 BOOT_VOLUME_SIZE_IN_GBS = 100    # watch the 200 GB/region block-volume quota
-# NOTE: ARM is the SECONDARY front (Micro goes first - it's easier to claim).
-# OCI rate-limits LaunchInstance per user, so ARM fires less often to avoid
-# stealing the rate budget from the Micro front. If both run together:
-#   Micro ~every 90-120s + ARM ~every 300-360s = total ~1 call / 80s (safe zone).
-RETRY_INTERVAL = 300             # base seconds between attempts
-JITTER_MAX = 60                  # random + jitter to avoid sync with other bots
+# NOTE: ARM is now the PRIMARY front (flipped). We already own one Micro, so the ARM
+# is the main prize (for deploying "super legacy"). OCI rate-limits LaunchInstance per
+# user; the secondary Micro front fires slower. If both run together:
+#   ARM ~every 90-120s + Micro ~every 300-360s = total ~1 call / 80s (safe zone).
+RETRY_INTERVAL = 90              # base seconds between attempts
+JITTER_MAX = 30                  # random + jitter to avoid sync with other bots
 TARGET_SHAPE = "VM.Standard.A1.Flex"
 WANTED_INGRESS_PORTS = [22, 80, 443, 8501]
 

@@ -17,13 +17,14 @@ import datetime
 # NEVER commit real OCIDs/IPs/keys to this public repo.
 COMPARTMENT_ID = ""
 SSH_PUBLIC_KEY = "ssh-ed25519 AAAA... your-key-comment"  # your SSH public key (.pub file content)
-INSTANCE_NAME = "free-micro"     # change to "free-micro-2" when claiming the second one
+INSTANCE_NAME = "legacy-deploy-micro"  # 2nd Micro (backup/deploy); NOT helia-farm
 BOOT_VOLUME_SIZE_IN_GBS = 50
-# NOTE: Micro is the PRIMARY front - easier to claim than ARM, and once won it
-# can host the ARM retry bot itself. ARM fires slower (300s+) so both fronts
-# stay under the per-user LaunchInstance rate limit (~1 call / 75-90s).
-RETRY_INTERVAL = 90              # base seconds between attempts
-JITTER_MAX = 30                  # random + jitter to avoid sync with other bots
+# NOTE: Micro is now the SECONDARY front (flipped). We already own one Micro, so a
+# second one is only a nice-to-have. ARM is the main prize and fires faster (90s).
+# Micro fires slower (300s+) so both fronts stay under the per-user LaunchInstance
+# rate limit (~1 call / 75-90s).
+RETRY_INTERVAL = 300             # base seconds between attempts
+JITTER_MAX = 60                  # random + jitter to avoid sync with other bots
 TARGET_SHAPE = "VM.Standard.E2.1.Micro"
 MAX_MICRO_INSTANCES = 2          # Always Free entitlement
 WANTED_INGRESS_PORTS = [22, 80, 443, 8501]
