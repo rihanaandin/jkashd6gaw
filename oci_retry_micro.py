@@ -16,7 +16,10 @@ import datetime
 # (GitHub Actions writes that config from repository secrets).
 # NEVER commit real OCIDs/IPs/keys to this public repo.
 COMPARTMENT_ID = ""
-SSH_PUBLIC_KEY = "ssh-ed25519 AAAA... your-key-comment"  # your SSH public key (.pub file content)
+# SSH PUBLIC key is safe to commit (it only grants access paired with the private
+# key, which lives ONLY locally / in secrets). Placeholder would make won
+# instances inaccessible — always use the real public key here.
+SSH_PUBLIC_KEY = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGNrcSHi7twDyxOaPNwPFn0Fel9tJ4fshhXzuhaAJERg helia-farm-ai-oci"
 INSTANCE_NAME = "legacy-deploy-micro"  # 2nd Micro (backup/deploy); NOT helia-farm
 BOOT_VOLUME_SIZE_IN_GBS = 50
 # NOTE: Micro is now the SECONDARY front (flipped). We already own one Micro, so a
