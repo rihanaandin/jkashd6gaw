@@ -14,19 +14,23 @@ import sys
 import datetime
 import oci
 
-# No OCIDs in this public repo: the instance is auto-discovered from the tenancy
-# (a running Always Free Micro). Override with env INSTANCE_OCID if needed.
+# No OCIDs in this public repo: instances are auto-discovered from the tenancy
+# (all running Always Free Micros). Override with env INSTANCE_OCID to check one.
 
 
-def find_instance_ocid():
+def find_micro_instances():
+    """Return list of (display_name, ocid) for running Micro instances."""
     if os.environ.get("INSTANCE_OCID"):
-        return os.environ["INSTANCE_OCID"]
+        return [("override", os.environ["INSTANCE_OCID"])]
     config = oci.config.from_file()
     compute = oci.core.ComputeClient(config)
+    found = []
     for inst in compute.list_instances(compartment_id=config["tenancy"]).data:
         if inst.shape == "VM.Standard.E2.1.Micro" and inst.lifecycle_state == "RUNNING":
-            return inst.id
-    raise SystemExit("No running VM.Standard.E2.1.Micro instance found in tenancy.")
+            found.append((inst.display_name, inst.id))
+    if not found:
+        raise SystemExit("No running VM.Standard.E2.1.Micro instance found in tenancy.")
+    return found
 
 
 def query(statistic, start, end, resolution, instance_ocid):
@@ -54,27 +58,25 @@ def query(statistic, start, end, resolution, instance_ocid):
 
 def main():
     hours = float(sys.argv[1]) if len(sys.argv) > 1 else 6
-    instance_ocid = find_instance_ocid()
+    instances = find_micro_instances()
     end = datetime.datetime.now(datetime.timezone.utc)
     start = end - datetime.timedelta(hours=hours)
     resolution = "5m" if hours <= 6 else "1h"
 
-    print(f"Instance : {instance_ocid}")
-    print(f"Window   : last {hours} h  ({start:%Y-%m-%d %H:%M} → {end:%Y-%m-%d %H:%M} UTC), res {resolution}\n")
+    print(f"Window : last {hours} h  ({start:%Y-%m-%d %H:%M} → {end:%Y-%m-%d %H:%M} UTC), res {resolution}")
+    print(f"Target : percentile(0.95) > 20% (reclaim if p95 < 20% over 7 days)\n")
 
-    for stat in ("mean()", "max()", "percentile(0.95)"):
-        pts = query(stat, start, end, resolution, instance_ocid)
-        if not pts:
-            print(f"{stat:20s}: no datapoints")
-            continue
-        vals = [v for _, v in pts]
-        print(f"{stat:20s}: min={min(vals):.1f}%  avg={sum(vals)/len(vals):.1f}%  max={max(vals):.1f}%  ({len(vals)} points)")
-        # show last few points
-        for ts, v in pts[-6:]:
-            print(f"    {ts:%m-%d %H:%M} UTC → {v:.1f}%")
-
-    print("\nInterpretation: reclaim happens if p95 < 20% over 7 days.")
-    print("Target: keep percentile(0.95) comfortably > 20%.")
+    for name, instance_ocid in instances:
+        print(f"=== {name} ===")
+        print(f"    {instance_ocid}")
+        for stat in ("mean()", "max()", "percentile(0.95)"):
+            pts = query(stat, start, end, resolution, instance_ocid)
+            if not pts:
+                print(f"    {stat:20s}: no datapoints")
+                continue
+            vals = [v for _, v in pts]
+            print(f"    {stat:20s}: min={min(vals):.1f}%  avg={sum(vals)/len(vals):.1f}%  max={max(vals):.1f}%  ({len(vals)} points)")
+        print()
 
 
 if __name__ == "__main__":
